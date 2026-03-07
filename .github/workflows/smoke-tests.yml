@@ -7,7 +7,7 @@ on:
       - ".github/workflows/smoke-tests.yml"
   push:
     branches:
-      - main
+      - master
     paths:
       - "kits/**"
       - ".github/workflows/smoke-tests.yml"
