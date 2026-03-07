@@ -53,6 +53,12 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
+## Testing
+
+Each kit can provide its own `smoke-test.sh` for end-to-end validation. These smoke tests are intended to catch breakage from Docker image updates, package manager changes, and Compose configuration regressions.
+
+GitHub Actions runs smoke tests only for kits touched by a PR or push when possible. Scheduled and manual runs execute all kit smoke tests.
+
 ## Repository Layout
 
 ```text
@@ -64,7 +70,8 @@ docker compose up -d --build
         ├── compose.yaml
         ├── nginx/
         ├── node/
-        └── php/
+        ├── php/
+        └── smoke-test.sh
 ```
 
 Each starter kit should contain only the files needed to define and run that stack.

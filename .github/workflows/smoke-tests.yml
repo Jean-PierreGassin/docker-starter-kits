@@ -1,0 +1,85 @@
+name: Smoke Tests
+
+on:
+  pull_request:
+    paths:
+      - "kits/**"
+      - ".github/workflows/smoke-tests.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "kits/**"
+      - ".github/workflows/smoke-tests.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * 1"
+
+jobs:
+  detect-kits:
+    runs-on: ubuntu-latest
+    outputs:
+      has_kits: ${{ steps.detect.outputs.has_kits }}
+      matrix: ${{ steps.detect.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            mapfile -t kits < <(find kits -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
+          else
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              range="origin/${{ github.base_ref }}...HEAD"
+            else
+              if [[ "${{ github.event.before }}" == "0000000000000000000000000000000000000000" ]]; then
+                range=""
+              else
+                range="${{ github.event.before }}...${{ github.sha }}"
+              fi
+            fi
+
+            if [[ -n "${range:-}" ]]; then
+              mapfile -t changed_files < <(git diff --name-only "$range")
+            else
+              mapfile -t changed_files < <(git ls-files)
+            fi
+
+            if printf '%s\n' "${changed_files[@]}" | grep -q '^\.github/workflows/smoke-tests\.yml$'; then
+              mapfile -t kits < <(find kits -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
+            else
+              mapfile -t kits < <(
+                printf '%s\n' "${changed_files[@]}" \
+                  | awk -F/ '/^kits\/[^/]+\// {print $2}' \
+                  | sort -u
+              )
+            fi
+          fi
+
+          if [[ ${#kits[@]} -eq 0 ]]; then
+            echo "has_kits=false" >>"$GITHUB_OUTPUT"
+            echo 'matrix={"kit":[]}' >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          json="$(printf '%s\n' "${kits[@]}" | jq -R . | jq -sc '{kit: .}')"
+          echo "has_kits=true" >>"$GITHUB_OUTPUT"
+          echo "matrix=$json" >>"$GITHUB_OUTPUT"
+
+  smoke-test:
+    needs: detect-kits
+    if: needs.detect-kits.outputs.has_kits == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect-kits.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run smoke test
+        run: ./kits/${{ matrix.kit }}/smoke-test.sh

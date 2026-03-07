@@ -88,6 +88,9 @@ docker compose exec php composer install
 
 # Install Node dependencies in your project
 docker compose exec node yarn install
+
+# Run the kit smoke test
+./smoke-test.sh
 ```
 
 ## Notes
