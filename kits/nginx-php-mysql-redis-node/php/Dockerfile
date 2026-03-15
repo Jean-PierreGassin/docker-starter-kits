@@ -1,7 +1,8 @@
 ARG PHP_VERSION=8.3
-FROM php:${PHP_VERSION}-fpm-bookworm
-
+ARG APP_CONTAINER_PATH=/var/www/html
 ARG DEBIAN_FRONTEND=noninteractive
+
+FROM php:${PHP_VERSION}-fpm-bookworm
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -41,6 +42,6 @@ COPY php/php.ini.template /usr/local/etc/php/php.ini.template
 COPY php/xdebug.ini.template /usr/local/etc/php/xdebug.ini.template
 COPY php/entrypoint.sh /usr/local/bin/app-php-entrypoint
 
-WORKDIR /var/www/app
+WORKDIR ${APP_CONTAINER_PATH}
 ENTRYPOINT ["app-php-entrypoint"]
 CMD ["php-fpm"]

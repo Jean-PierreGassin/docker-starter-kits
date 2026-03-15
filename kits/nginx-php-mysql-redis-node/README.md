@@ -56,7 +56,7 @@ The main values in `.env` are:
 
 - `APP_NAME`: used for container, network, and volume naming
 - `APP_HOST_PATH`: host path mounted into app-related containers
-- `APP_CONTAINER_PATH`: in-container application path
+- `APP_CONTAINER_PATH`: in-container application path (if you update this ensure you update the path ref in default.conf)
 - `APP_HTTP_PORT`: exposed HTTP port for Nginx
 - `MYSQL_*`: MySQL database credentials
 - `REDIS_PORT`: exposed Redis port
