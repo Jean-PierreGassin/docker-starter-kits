@@ -6,6 +6,9 @@ FROM php:${PHP_VERSION}-fpm-bookworm
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        bash \
+        bash-completion \
+        zsh \
         git \
         unzip \
         zip \
@@ -36,6 +39,11 @@ RUN apt-get update \
     && docker-php-ext-enable redis xdebug \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+RUN printf '%s\n' \
+    'autoload -Uz compinit' \
+    'compinit' \
+    > /etc/zsh/zshrc
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY php/php.ini.template /usr/local/etc/php/php.ini.template
