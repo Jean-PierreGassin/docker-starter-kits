@@ -4,6 +4,9 @@ ARG HOST_UID=1000
 ARG HOST_GID=1000
 FROM node:${NODE_VERSION}-${NODE_VARIANT}
 
+ARG HOST_UID=1000
+ARG HOST_GID=1000
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         bash \
