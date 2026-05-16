@@ -2,7 +2,7 @@
 
 Reusable Docker-based starter kits for local development.
 
-This repository is for projects that want a clean, repeatable development stack without requiring every runtime and tool to be installed on the host machine. Each kit is intended to be copied, configured with a local `.env`, and pointed at a real application directory.
+This repository is for projects that want a clean, repeatable development stack without requiring every runtime and tool to be installed on the host machine. Each kit is intended to be copied into a project, configured with a local `.env`, and run beside other projects without naming or port collisions.
 
 ## What This Repository Is For
 
@@ -16,7 +16,8 @@ This repository is for projects that want a clean, repeatable development stack 
 - Each service should have a single responsibility.
 - Tooling should live in the container that uses it.
 - Configuration should be driven by `.env` and documented in `.env.example`.
-- Application names, ports, and mount paths should be easy to change.
+- Application names, ports, image versions, and mount paths should be easy to change.
+- Multiple projects using the same kit should be able to run side by side when their `.env` values are unique.
 - Kits should stay practical and minimal, not framework-specific by default.
 
 ## Available Kits
@@ -42,7 +43,7 @@ This kit does not include a sample application. You mount your own project into 
 1. Clone the repository.
 2. Open the kit you want to use.
 3. Copy `.env.example` to `.env`.
-4. Update `APP_HOST_PATH` and any ports or credentials you want to change.
+4. Update `APP_NAME`, `APP_HOST_PATH`, and any ports, credentials, or image tags you want to change.
 5. Start the stack with Docker Compose.
 
 Example:

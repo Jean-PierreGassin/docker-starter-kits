@@ -1,5 +1,6 @@
-ARG NODE_VERSION=22
-FROM node:${NODE_VERSION}-bookworm
+ARG NODE_VERSION=24
+ARG NODE_VARIANT=bookworm
+FROM node:${NODE_VERSION}-${NODE_VARIANT}
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \

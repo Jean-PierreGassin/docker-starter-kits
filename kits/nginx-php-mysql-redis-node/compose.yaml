@@ -1,15 +1,22 @@
+name: ${APP_NAME}
+
 services:
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:${NGINX_IMAGE_TAG}
     container_name: ${APP_NAME}_nginx
     depends_on:
       php:
         condition: service_started
     ports:
       - "${APP_HTTP_PORT}:80"
+    environment:
+      TZ: ${TZ}
+      NGINX_WEB_ROOT: ${NGINX_WEB_ROOT}
+      NGINX_INDEX: ${NGINX_INDEX}
+      NGINX_FASTCGI_PASS: ${NGINX_FASTCGI_PASS}
     volumes:
       - ${APP_HOST_PATH}:${APP_CONTAINER_PATH}:ro
-      - ./nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/templates/default.conf.template:/etc/nginx/templates/default.conf.template:ro
     networks:
       - app_network
 
@@ -19,6 +26,9 @@ services:
       dockerfile: php/Dockerfile
       args:
         PHP_VERSION: ${PHP_VERSION}
+        PHP_VARIANT: ${PHP_VARIANT}
+        COMPOSER_VERSION: ${COMPOSER_VERSION}
+        APP_CONTAINER_PATH: ${APP_CONTAINER_PATH}
     container_name: ${APP_NAME}_php
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -41,6 +51,7 @@ services:
       dockerfile: node/Dockerfile
       args:
         NODE_VERSION: ${NODE_VERSION}
+        NODE_VARIANT: ${NODE_VARIANT}
     container_name: ${APP_NAME}_node
     environment:
       TZ: ${TZ}
@@ -52,7 +63,7 @@ services:
       - app_network
 
   mysql:
-    image: mysql:8.4
+    image: mysql:${MYSQL_IMAGE_TAG}
     container_name: ${APP_NAME}_mysql
     environment:
       TZ: ${TZ}
@@ -74,7 +85,7 @@ services:
       - app_network
 
   redis:
-    image: redis:7-alpine
+    image: redis:${REDIS_IMAGE_TAG}
     container_name: ${APP_NAME}_redis
     ports:
       - "${REDIS_PORT}:6379"
@@ -84,7 +95,7 @@ services:
       - app_network
 
   mailhog:
-    image: mailhog/mailhog:v1.0.1
+    image: mailhog/mailhog:${MAILHOG_IMAGE_TAG}
     container_name: ${APP_NAME}_mailhog
     ports:
       - "${MAILHOG_SMTP_PORT}:1025"

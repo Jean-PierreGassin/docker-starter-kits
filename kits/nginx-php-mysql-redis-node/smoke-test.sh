@@ -3,71 +3,116 @@ set -euo pipefail
 
 KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TMP_DIR="$(mktemp -d)"
-APP_DIR="$TMP_DIR/app"
-ENV_FILE="$TMP_DIR/.env"
+APP_A_DIR="$TMP_DIR/app-a"
+APP_B_DIR="$TMP_DIR/app-b"
+ENV_A_FILE="$TMP_DIR/.env.a"
+ENV_B_FILE="$TMP_DIR/.env.b"
 
 cleanup() {
-  docker compose --project-name "$APP_NAME" --env-file "$ENV_FILE" down -v --remove-orphans >/dev/null 2>&1 || true
+  for env_file in "$ENV_A_FILE" "$ENV_B_FILE"; do
+    if [[ -f "$env_file" ]]; then
+      docker compose --env-file "$env_file" -f "$KIT_DIR/compose.yaml" down -v --remove-orphans >/dev/null 2>&1 || true
+    fi
+  done
   rm -rf "$TMP_DIR"
 }
 
 trap cleanup EXIT
 
-mkdir -p "$APP_DIR/public"
+create_app() {
+  local app_dir="$1"
+  local response="$2"
 
-cat >"$APP_DIR/public/index.php" <<'PHP'
+  mkdir -p "$app_dir/public"
+
+  cat >"$app_dir/public/index.php" <<PHP
 <?php
 header('Content-Type: text/plain');
-echo 'smoke-test-ok';
+echo '$response';
 PHP
-
-APP_NAME="smoke$(date +%s)"
-BASE_PORT="$((20000 + RANDOM % 10000))"
-
-cp "$KIT_DIR/.env.example" "$ENV_FILE"
-
-{
-  echo
-  echo "APP_NAME=$APP_NAME"
-  echo "APP_HOST_PATH=$APP_DIR"
-  echo "APP_HTTP_PORT=$BASE_PORT"
-  echo "MAILHOG_SMTP_PORT=$((BASE_PORT + 1))"
-  echo "MAILHOG_HTTP_PORT=$((BASE_PORT + 2))"
-  echo "MYSQL_PORT=$((BASE_PORT + 3))"
-  echo "REDIS_PORT=$((BASE_PORT + 4))"
-} >>"$ENV_FILE"
-
-cd "$KIT_DIR"
-
-compose() {
-  docker compose --project-name "$APP_NAME" --env-file "$ENV_FILE" "$@"
 }
 
-compose up -d --build
+write_env() {
+  local env_file="$1"
+  local app_name="$2"
+  local app_dir="$3"
+  local base_port="$4"
 
-MYSQL_READY=false
-for _ in $(seq 1 30); do
-  if compose exec -T mysql mysqladmin ping -h127.0.0.1 -uroot -proot >/dev/null 2>&1; then
-    MYSQL_READY=true
-    break
-  fi
-  sleep 2
-done
+  cp "$KIT_DIR/.env.example" "$env_file"
 
-if [[ "$MYSQL_READY" != "true" ]]; then
-  compose logs --no-color mysql >&2 || true
+  {
+    echo
+    echo "APP_NAME=$app_name"
+    echo "APP_HOST_PATH=$app_dir"
+    echo "APP_HTTP_PORT=$base_port"
+    echo "MAILHOG_SMTP_PORT=$((base_port + 1))"
+    echo "MAILHOG_HTTP_PORT=$((base_port + 2))"
+    echo "MYSQL_PORT=$((base_port + 3))"
+    echo "REDIS_PORT=$((base_port + 4))"
+  } >>"$env_file"
+}
+
+compose() {
+  local env_file="$1"
+  shift
+
+  docker compose --env-file "$env_file" -f "$KIT_DIR/compose.yaml" "$@"
+}
+
+wait_for_mysql() {
+  local env_file="$1"
+
+  for _ in $(seq 1 30); do
+    if compose "$env_file" exec -T mysql mysqladmin ping -h127.0.0.1 -uroot -proot >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+
+  compose "$env_file" logs --no-color mysql >&2 || true
   echo "MySQL did not become ready during smoke test." >&2
-  exit 1
-fi
+  return 1
+}
 
-compose ps -a
-compose exec -T node sh -lc 'node -v && yarn -v'
-compose exec -T php sh -lc 'php -v && composer --version'
-compose exec -T mysql mysqladmin ping -h127.0.0.1 -uroot -proot
-compose exec -T redis redis-cli ping
+assert_http_response() {
+  local port="$1"
+  local expected_response="$2"
 
-NGINX_OUTPUT="$(compose exec -T nginx sh -lc 'wget -qO- http://127.0.0.1/')"
-if [[ "$NGINX_OUTPUT" != "smoke-test-ok" ]]; then
-  echo "Unexpected Nginx response: $NGINX_OUTPUT" >&2
-  exit 1
-fi
+  local response
+  response="$(curl -fsS "http://127.0.0.1:$port/")"
+
+  if [[ "$response" != "$expected_response" ]]; then
+    echo "Unexpected HTTP response on port $port: $response" >&2
+    exit 1
+  fi
+}
+
+RUN_ID="$(date +%s)$RANDOM"
+APP_A_NAME="smokea${RUN_ID}"
+APP_B_NAME="smokeb${RUN_ID}"
+BASE_PORT="$((20000 + RANDOM % 9000))"
+APP_A_PORT="$BASE_PORT"
+APP_B_PORT="$((BASE_PORT + 10))"
+
+create_app "$APP_A_DIR" "smoke-test-a-ok"
+create_app "$APP_B_DIR" "smoke-test-b-ok"
+write_env "$ENV_A_FILE" "$APP_A_NAME" "$APP_A_DIR" "$APP_A_PORT"
+write_env "$ENV_B_FILE" "$APP_B_NAME" "$APP_B_DIR" "$APP_B_PORT"
+
+compose "$ENV_A_FILE" up -d --build
+compose "$ENV_B_FILE" up -d --build
+
+wait_for_mysql "$ENV_A_FILE"
+wait_for_mysql "$ENV_B_FILE"
+
+compose "$ENV_A_FILE" ps -a
+compose "$ENV_B_FILE" ps -a
+compose "$ENV_A_FILE" exec -T node sh -lc 'node -v && yarn -v'
+compose "$ENV_A_FILE" exec -T php sh -lc 'php -v && composer --version'
+compose "$ENV_A_FILE" exec -T mysql mysqladmin ping -h127.0.0.1 -uroot -proot
+compose "$ENV_A_FILE" exec -T redis redis-cli ping
+compose "$ENV_B_FILE" exec -T mysql mysqladmin ping -h127.0.0.1 -uroot -proot
+compose "$ENV_B_FILE" exec -T redis redis-cli ping
+
+assert_http_response "$APP_A_PORT" "smoke-test-a-ok"
+assert_http_response "$APP_B_PORT" "smoke-test-b-ok"
