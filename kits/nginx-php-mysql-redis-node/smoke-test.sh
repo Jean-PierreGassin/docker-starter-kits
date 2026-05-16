@@ -44,6 +44,8 @@ write_env() {
     echo
     echo "APP_NAME=$app_name"
     echo "APP_HOST_PATH=$app_dir"
+    echo "HOST_UID=$(id -u)"
+    echo "HOST_GID=$(id -g)"
     echo "APP_HTTP_PORT=$base_port"
     echo "MAILHOG_SMTP_PORT=$((base_port + 1))"
     echo "MAILHOG_HTTP_PORT=$((base_port + 2))"
