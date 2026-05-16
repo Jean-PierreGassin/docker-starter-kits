@@ -15,14 +15,17 @@ on:
   schedule:
     - cron: "0 12 * * 1"
 
+permissions:
+  contents: read
+
 jobs:
   detect-kits:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       has_kits: ${{ steps.detect.outputs.has_kits }}
       matrix: ${{ steps.detect.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -74,12 +77,12 @@ jobs:
   smoke-test:
     needs: detect-kits
     if: needs.detect-kits.outputs.has_kits == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.detect-kits.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Run smoke test
         run: ./kits/${{ matrix.kit }}/smoke-test.sh
