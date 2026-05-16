@@ -47,6 +47,7 @@ write_env() {
     echo "HOST_UID=$(id -u)"
     echo "HOST_GID=$(id -g)"
     echo "APP_HTTP_PORT=$base_port"
+    echo "NODE_PORT=$((base_port + 5))"
     echo "MAILHOG_SMTP_PORT=$((base_port + 1))"
     echo "MAILHOG_HTTP_PORT=$((base_port + 2))"
     echo "MYSQL_PORT=$((base_port + 3))"
